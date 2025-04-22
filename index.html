@@ -276,18 +276,70 @@
             margin-bottom: 0;
         }
 
-        /* Reload Button Styling */
-        #reload-button {
+        /* Reload/Manual Save Button Styling */
+        .floating-action-button {
             position: fixed;
-            bottom: 20px;
             right: 20px;
-            z-index: 100; /* Ensure it's above everything */
-            padding: 12px 15px;
-            font-size: 1.5em; /* Make icon larger */
+            z-index: 100; /* Ensure it's above markers */
+            padding: 10px;
+            font-size: 1.3em; /* Standardize icon size */
             line-height: 1; /* Align icon better */
             border-radius: 50%; /* Make it round */
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             display: none; /* Initially hidden */
+            cursor: pointer;
+             /* Inherit button styles defined earlier */
+            background-color: #7e4fb3;
+            color: white;
+            border: none;
+            transition: background-color 0.2s ease;
+        }
+        .floating-action-button:hover {
+             background-color: #5a2a88;
+        }
+        .floating-action-button:disabled {
+             background-color: #aaa;
+             cursor: wait;
+             opacity: 0.7;
+        }
+        #reload-button {
+            bottom: 20px;
+            padding: 12px 15px; /* Keep reload slightly bigger */
+            font-size: 1.5em;
+        }
+        #manual-save-button {
+            bottom: 85px; /* Position above reload (adjust as needed based on size) */
+        }
+
+        /* Notification Styling */
+        #notification-area {
+             position: fixed;
+             top: 20px;
+             right: 20px;
+             z-index: 110; /* Above everything else */
+             display: flex;
+             flex-direction: column;
+             align-items: flex-end;
+             gap: 10px;
+         }
+        .notification {
+             padding: 10px 20px;
+             border-radius: 5px;
+             color: white;
+             font-size: 0.9em;
+             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+             opacity: 1;
+             transition: opacity 0.5s ease-out;
+         }
+        .notification.success {
+             background-color: #5cb85c; /* Green */
+         }
+        .notification.error {
+             background-color: #d9534f; /* Red */
+         }
+        .notification.hidden {
+            opacity: 0;
+            pointer-events: none; /* Prevent interaction while fading */
         }
 
         /* Chapter Markers Styling */
@@ -329,6 +381,8 @@
     </style>
 </head>
 <body>
+    <!-- Notification Area -->
+    <div id="notification-area"></div>
 
     <h1>Wedding Playlist Organizer</h1>
 
@@ -353,8 +407,9 @@
     <!-- Chapter Markers -->
     <div id="chapter-markers"></div>
 
-    <!-- Floating Reload Button -->
-    <button id="reload-button" title="Reload playlist from Spotify">🔄</button>
+    <!-- Floating Buttons -->
+    <button id="manual-save-button" class="floating-action-button" title="Save playlist now">💾</button>
+    <button id="reload-button" class="floating-action-button" title="Reload playlist from Spotify">🔄</button>
 
     <script>
         // --- Configuration ---
@@ -392,6 +447,8 @@
         const crossfadeValueDisplay = document.getElementById('crossfade-value');
         const reloadButton = document.getElementById('reload-button');
         const chapterMarkersContainer = document.getElementById('chapter-markers');
+        const notificationArea = document.getElementById('notification-area');
+        const manualSaveButton = document.getElementById('manual-save-button');
 
         // --- Utility Functions ---
         // Debounce function
@@ -484,6 +541,30 @@
                 .replace(/\+/g, '-')
                 .replace(/\//g, '_')
                 .replace(/=+$/, '');
+        }
+
+        // --- Notifications ---
+        let notificationTimeoutId = null;
+        function showNotification(message, isError = false) {
+            if (!notificationArea) return;
+
+            // Clear previous timeout if any
+            clearTimeout(notificationTimeoutId);
+
+            const notification = document.createElement('div');
+            notification.classList.add('notification');
+            notification.classList.add(isError ? 'error' : 'success');
+            notification.textContent = message;
+
+            // Prepend to show newest on top
+            notificationArea.prepend(notification);
+
+            // Auto-hide after 3 seconds
+            notificationTimeoutId = setTimeout(() => {
+                 notification.classList.add('hidden');
+                 // Remove from DOM after transition
+                 notification.addEventListener('transitionend', () => notification.remove(), { once: true });
+            }, 3000);
         }
 
         // --- Spotify API Interaction ---
@@ -668,15 +749,15 @@
                     }
                 }
 
-                alert('Playlist order saved successfully on Spotify!');
+                showNotification('Playlist saved successfully!');
 
             } catch (error) {
-                displayError(`Failed to save playlist: ${error.message}`);
+                showNotification(`Error saving playlist: ${error.message || 'Unknown error'}`, true);
             }
         }
 
         // Create a debounced version of savePlaylistOrder
-        const debouncedSavePlaylistOrder = debounce(savePlaylistOrder, 2000); // 2 second delay
+        const debouncedSavePlaylistOrder = debounce(savePlaylistOrder, 5000); // 5 second delay
 
         // --- UI Rendering & Updates ---
         function renderPlaylist() {
@@ -1025,6 +1106,27 @@
                 }
             });
 
+            // Add listener for marker clicks
+            if(chapterMarkersContainer) {
+                chapterMarkersContainer.addEventListener('click', handleMarkerClick);
+            }
+            // Add listener for manual save click
+            if (manualSaveButton) {
+                 manualSaveButton.addEventListener('click', async () => {
+                     console.log("Manual save clicked.");
+                     showNotification("Saving playlist..."); // Provide immediate feedback
+                     manualSaveButton.disabled = true;
+                     try {
+                         await savePlaylistOrder(); // Call non-debounced version
+                     } catch (saveError) {
+                         // Notification handled within savePlaylistOrder
+                         console.error("Manual save error:", saveError);
+                     } finally {
+                         manualSaveButton.disabled = false;
+                     }
+                 });
+            }
+
             const params = new URLSearchParams(window.location.search);
             const code = params.get('code');
             const error = params.get('error');
@@ -1048,6 +1150,7 @@
                 controlsSection.style.display = 'none';
                 reloadButton.style.display = 'none'; // Hide reload button
                 if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
                 loginButton.addEventListener('click', requestAuthorization);
                 return;
             }
@@ -1065,6 +1168,7 @@
                     controlsSection.style.display = 'none';
                     reloadButton.style.display = 'none'; // Hide reload button
                     if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                    if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
                     loginButton.addEventListener('click', requestAuthorization);
                 }
             } else if (/* check for stored valid token if implementing persistence */ false) {
@@ -1073,6 +1177,11 @@
                 // refreshToken = localStorage.getItem('spotify_refresh_token');
                 // console.log("Using stored token.");
                 // await loadAppContent();
+                controlsSection.style.display = 'none';
+                reloadButton.style.display = 'none'; // Hide reload button
+                if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
+                loginButton.addEventListener('click', requestAuthorization);
             } else {
                 // No code, no stored token - show login button
                 console.log("No authorization code or stored token found, showing login button.");
@@ -1080,6 +1189,7 @@
                 controlsSection.style.display = 'none';
                 reloadButton.style.display = 'none'; // Hide reload button
                 if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
                 loginButton.addEventListener('click', requestAuthorization);
             }
         }
@@ -1090,6 +1200,7 @@
             controlsSection.style.display = 'block';
             reloadButton.style.display = 'block'; // Show reload button
             if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'flex'; // Show markers
+            if(manualSaveButton) manualSaveButton.style.display = 'block'; // Show manual save
 
             // Add listener only once, or check if exists before adding
             if (!reloadButton.dataset.listenerAttached) { 
@@ -1131,6 +1242,7 @@
                  controlsSection.style.display = 'none';
                  reloadButton.style.display = 'none'; // Hide reload button on error
                  if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers on error
+                 if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save on error
                  accessToken = null; // Clear potentially invalid token
                  refreshToken = null;
                  loginButton.addEventListener('click', requestAuthorization);
