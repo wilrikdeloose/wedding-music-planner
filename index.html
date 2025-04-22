@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedding Playlist Organizer</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #f8f8f8;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #5a2a88; /* A wedding-ish purple */
+        }
+
+        #auth-section, #controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #7e4fb3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin: 0 10px;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #5a2a88;
+        }
+
+        #error-message {
+            color: #d9534f;
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+            background-color: #7e4fb3;
+            margin: 5px 0;
+        }
+
+        #playlist-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .chapter {
+            margin-bottom: 25px;
+            padding-top: 15px;
+        }
+
+        .chapter:first-child {
+            padding-top: 0;
+        }
+
+        .chapter-header {
+            display: flex;
+            align-items: center;
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #7e4fb3;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .chapter-toggle {
+             margin-right: 8px;
+             font-size: 0.7em;
+             display: inline-block;
+             width: 1em;
+             text-align: center;
+        }
+
+        .chapter-title-text {
+             flex-grow: 1;
+        }
+
+        .chapter-header span {
+            font-size: 0.8em;
+            font-weight: normal;
+            color: #666;
+            margin-left: 10px;
+        }
+
+        .song-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            min-height: 50px; /* Allows dropping into empty chapters */
+        }
+
+        .song-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            cursor: grab;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            position: relative; /* Needed for absolute positioning of the menu */
+        }
+
+        .song-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .song-item.dragging {
+            opacity: 0.5;
+            background-color: #e0e0e0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            cursor: grabbing;
+        }
+
+        .song-details {
+            flex-grow: 1;
+            margin-right: 15px;
+        }
+
+        .song-title {
+            font-weight: bold;
+        }
+
+        .song-artist {
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .song-timing {
+            font-size: 0.9em;
+            color: #888;
+            text-align: right;
+            min-width: 100px; /* Ensure timings align */
+        }
+
+        .song-start-time {
+             display: block;
+        }
+
+        .song-duration {
+             display: block;
+        }
+
+        /* Drag and Drop Indicator */
+        .drop-indicator {
+            height: 2px;
+            background-color: #7e4fb3;
+            margin: 5px 0;
+        }
+
+        #controls button { /* Target buttons specifically within controls for spacing */
+            margin: 0 10px;
+        }
+
+        /* Play Button Styling */
+        /* Removed simulation styles */
+
+        /* Preview Button Styling */
+        .preview-button {
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-right: 15px;
+            color: #1DB954; /* Spotify Green */
+            transition: color 0.2s ease;
+            display: inline-block; /* Ensure it takes space */
+            width: 20px; /* Fixed width for alignment */
+            text-align: center;
+        }
+        .preview-button:hover {
+            color: #1ed760;
+        }
+        .preview-button.playing {
+             color: #ff6347; /* Tomato color when playing */
+        }
+        .preview-button.disabled {
+            color: #ccc;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        /* Crossfade Slider Styling */
+        #crossfade-control {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Center align the slider control */
+            gap: 10px; /* Space between label, slider, and value */
+            color: #555; /* Match artist text color */
+        }
+        #crossfade-slider {
+            width: 200px; /* Adjust width as needed */
+            cursor: pointer;
+        }
+        #crossfade-value {
+            font-weight: bold;
+            min-width: 50px; /* Prevent layout shifts */
+            text-align: right;
+        }
+
+        /* Hide song list when chapter is collapsed */
+        .chapter.collapsed .song-list {
+            display: none;
+        }
+
+        /* Move Song Buttons Styling */
+        .move-controls {
+            display: flex;
+            align-items: center;
+            margin-left: 10px; /* Space before timing */
+        }
+        .move-trigger-button {
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 0 5px;
+            color: #aaa;
+            border: 1px solid transparent; /* Maintain layout */
+            border-radius: 3px;
+            user-select: none;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .move-trigger-button:hover {
+             color: #666;
+             background-color: #f0f0f0;
+             border-color: #ddd;
+        }
+        .move-menu {
+            display: none; /* Hidden by default */
+            position: absolute;
+            right: 0; /* Align to the right of the song item */
+            top: 100%; /* Position below the song item */
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            padding: 5px;
+            z-index: 10; /* Ensure it's above other items */
+            min-width: 150px; /* Minimum width */
+            border-radius: 4px;
+        }
+        .move-menu.visible {
+            display: block;
+        }
+        .move-destination-button {
+            display: block;
+            width: 100%;
+            padding: 5px 10px;
+            margin-bottom: 3px;
+            text-align: left;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+            color: #5a2a88;
+        }
+        .move-destination-button:hover {
+            background-color: #e8dff5;
+            border-color: #d1c5e0;
+        }
+         .move-destination-button:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Reload Button Styling */
+        #reload-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100; /* Ensure it's above everything */
+            padding: 12px 15px;
+            font-size: 1.5em; /* Make icon larger */
+            line-height: 1; /* Align icon better */
+            border-radius: 50%; /* Make it round */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            display: none; /* Initially hidden */
+        }
+
+        /* Chapter Markers Styling */
+        #chapter-markers {
+            position: fixed;
+            top: 50%; /* Center vertically */
+            transform: translateY(-50%);
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 90; /* Below reload button */
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            display: none; /* Initially hidden */
+        }
+        #chapter-markers a {
+            display: block;
+            padding: 5px 10px;
+            font-size: 0.8em;
+            color: #5a2a88;
+            text-decoration: none;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+            transition: background-color 0.2s, color 0.2s, font-weight 0.2s;
+            white-space: nowrap;
+        }
+        #chapter-markers a:hover {
+            background-color: #e8dff5;
+        }
+        #chapter-markers a.active {
+            background-color: #7e4fb3;
+            color: white;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Wedding Playlist Organizer</h1>
+
+    <div id="auth-section">
+        <button id="login-button">Login with Spotify</button>
+    </div>
+
+    <div id="error-message"></div>
+
+    <div id="controls" style="display: none;">
+        <div id="crossfade-control">
+            <label for="crossfade-slider">Crossfade:</label>
+            <input type="range" id="crossfade-slider" name="crossfade" min="0" max="12" step="1" value="5">
+            <span id="crossfade-value">5 s</span>
+        </div>
+    </div>
+
+    <div id="playlist-container">
+        <!-- Chapters and songs will be loaded here -->
+    </div>
+
+    <!-- Chapter Markers -->
+    <div id="chapter-markers"></div>
+
+    <!-- Floating Reload Button -->
+    <button id="reload-button" title="Reload playlist from Spotify">🔄</button>
+
+    <script>
+        // --- Configuration ---
+        const CLIENT_ID = 'ebad4e59324d46508365b346bb259963';
+        const PLAYLIST_ID = '2S0g60Pj6okGDTvSUBgBs5'; // The specific playlist
+        const REDIRECT_URI = window.location.origin + window.location.pathname; // Use current page URL
+        const SCOPES = 'playlist-read-private playlist-modify-public playlist-modify-private';
+
+        const WEDDING_START_TIME_STR = '14:15'; // H:MM format
+        const chapters = [
+            { name: "Guests Arrival", time: "14:15" },
+            { name: "Ceremony", time: "14:30" },
+            { name: "Reception", time: "15:30" },
+            { name: "Buffet", time: "17:00" },
+            { name: "Party", time: "19:00" },
+            { name: "End", time: "22:00" } // Used to cap the last chapter
+        ];
+
+        // --- State ---
+        let accessToken = null;
+        let refreshToken = null; // Added for PKCE flow
+        let tracksData = []; // Holds the raw track data from Spotify API
+        let weddingStartMs = 0; // Wedding start time in milliseconds since epoch (for display)
+        let weddingBaseOffsetMinutes = 0; // Offset from midnight in minutes
+        let crossfadeMs = 5000; // Default crossfade 5 seconds
+        // Removed Simulation State
+
+        // --- DOM Elements ---
+        const loginButton = document.getElementById('login-button');
+        const authSection = document.getElementById('auth-section');
+        const controlsSection = document.getElementById('controls');
+        const playlistContainer = document.getElementById('playlist-container');
+        const errorMessageDiv = document.getElementById('error-message');
+        const crossfadeSlider = document.getElementById('crossfade-slider');
+        const crossfadeValueDisplay = document.getElementById('crossfade-value');
+        const reloadButton = document.getElementById('reload-button');
+        const chapterMarkersContainer = document.getElementById('chapter-markers');
+
+        // --- Utility Functions ---
+        // Debounce function
+        function debounce(func, delay) {
+            let timeoutId;
+            return function(...args) {
+                clearTimeout(timeoutId);
+                console.log(`Debouncing save request... will execute in ${delay}ms if no further changes.`);
+                timeoutId = setTimeout(() => {
+                    func.apply(this, args);
+                }, delay);
+            };
+        }
+
+        // Throttle function (for scroll events)
+        function throttle(func, limit) {
+          let inThrottle;
+          return function(...args) {
+            const context = this;
+            if (!inThrottle) {
+              func.apply(context, args);
+              inThrottle = true;
+              setTimeout(() => {
+                 inThrottle = false;
+              }, limit);
+            }
+          }
+        }
+
+        function displayError(message) {
+            console.error(message);
+            errorMessageDiv.textContent = `Error: ${message}`;
+        }
+
+        function clearError() {
+            errorMessageDiv.textContent = '';
+        }
+
+        function parseTime(timeStr) { // "HH:MM" -> minutes since midnight
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+
+        function formatTime(date) { // Date object -> "HH:MM"
+            return date.toLocaleTimeString(navigator.language, { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+
+        function formatDuration(ms) { // Milliseconds -> "M:SS"
+            const totalSeconds = Math.round(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function calculateChapterOffsets() {
+            const baseOffset = parseTime(WEDDING_START_TIME_STR);
+            weddingBaseOffsetMinutes = baseOffset;
+
+            // Set a reference date (today) to calculate actual Date objects for display
+            const today = new Date();
+            today.setHours(Math.floor(baseOffset / 60), baseOffset % 60, 0, 0);
+            weddingStartMs = today.getTime();
+
+            return chapters.map(ch => ({
+                ...ch,
+                startOffsetMinutes: parseTime(ch.time) - baseOffset
+            }));
+        }
+
+        const chapterDefinitions = calculateChapterOffsets();
+
+        // --- PKCE Helper Functions ---
+        // Function to generate a random string for the code verifier
+        function generateRandomString(length) {
+            let text = '';
+            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            for (let i = 0; i < length; i++) {
+                text += possible.charAt(Math.floor(Math.random() * possible.length));
+            }
+            return text;
+        }
+
+        // Function to generate the code challenge from the code verifier
+        async function generateCodeChallenge(codeVerifier) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(codeVerifier);
+            const digest = await window.crypto.subtle.digest('SHA-256', data);
+            // Base64 URL encode the ArrayBuffer
+            return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+
+        // --- Spotify API Interaction ---
+        async function requestAuthorization() {
+            clearError();
+            const codeVerifier = generateRandomString(128);
+            localStorage.setItem('spotify_code_verifier', codeVerifier);
+
+            try {
+                const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+                const params = new URLSearchParams({
+                    client_id: CLIENT_ID,
+                    response_type: 'code', // Changed from 'token'
+                    redirect_uri: REDIRECT_URI,
+                    scope: SCOPES,
+                    code_challenge_method: 'S256',
+                    code_challenge: codeChallenge
+                    // show_dialog: 'true'
+                });
+                console.log("Redirecting for authorization...");
+                window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
+            } catch (error) {
+                displayError(`Failed to start authorization: ${error.message}`);
+                localStorage.removeItem('spotify_code_verifier'); // Clean up storage on error
+            }
+        }
+
+        // Removed getAccessTokenFromUrl function - no longer needed for PKCE hash
+
+        async function getTokensFromCode(code) {
+            const verifier = localStorage.getItem('spotify_code_verifier');
+            if (!verifier) {
+                throw new Error("Code verifier missing from storage. Please log in again.");
+            }
+
+            const tokenUrl = 'https://accounts.spotify.com/api/token';
+            const body = new URLSearchParams({
+                client_id: CLIENT_ID,
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: REDIRECT_URI,
+                code_verifier: verifier,
+            });
+
+            try {
+                console.log("Exchanging code for token...");
+                const response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: body.toString(),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`Token exchange failed: ${response.status} ${response.statusText}. ${errorData.error_description || errorData.error || ''}`);
+                }
+
+                const tokenData = await response.json();
+                accessToken = tokenData.access_token;
+                refreshToken = tokenData.refresh_token; // Store refresh token
+                // Optionally store tokens in localStorage/sessionStorage for persistence
+                // localStorage.setItem('spotify_access_token', accessToken);
+                // localStorage.setItem('spotify_refresh_token', refreshToken);
+                console.log("Token received successfully.");
+                localStorage.removeItem('spotify_code_verifier'); // Clean up verifier
+                return true;
+            } catch (error) {
+                displayError(`Failed to get token: ${error.message}`);
+                localStorage.removeItem('spotify_code_verifier'); // Clean up verifier
+                return false;
+            }
+        }
+
+        async function fetchWebApi(endpoint, method = 'GET', body = null) {
+            if (!accessToken) {
+                 displayError("Not authenticated. Please log in.");
+                 // Optionally add refresh token logic here in a real app
+                 throw new Error("Not authenticated.");
+             }
+            try {
+                const res = await fetch(`https://api.spotify.com/v1${endpoint}`, {
+                    method: method,
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: body ? JSON.stringify(body) : null
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({})); // Try to get error details
+                    throw new Error(`Spotify API Error: ${res.status} ${res.statusText}. ${errorData.error?.message || ''}`);
+                }
+                 // Handle cases where response might be empty (e.g., PUT requests with 204)
+                if (res.status === 204 || res.headers.get("content-length") === "0") {
+                    return null; // Or return a specific success indicator if needed
+                }
+
+                return await res.json();
+            } catch (error) {
+                displayError(`API call failed: ${error.message}`);
+                throw error; // Re-throw to stop further processing
+            }
+        }
+
+        async function fetchAllPlaylistTracks(playlistId) {
+            let tracks = [];
+            let url = `/playlists/${playlistId}/tracks?fields=items(track(id,name,artists(name),duration_ms,uri)),next`;
+            let page = 1;
+            try {
+                while (url) {
+                    console.log(`Fetching playlist page ${page}...`);
+                    const data = await fetchWebApi(url);
+                     if (!data || !data.items) {
+                        console.warn("Received no items in playlist fetch response.");
+                        break; // Exit loop if no data or items
+                    }
+                    tracks = tracks.concat(data.items.filter(item => item.track)); // Filter out null tracks if any
+                    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null; // Get relative URL for next page
+                    page++;
+                }
+                console.log(`Fetched ${tracks.length} tracks total.`);
+                return tracks;
+            } catch (error) {
+                displayError(`Failed to fetch playlist tracks: ${error.message}`);
+                return []; // Return empty on error
+            }
+        }
+
+         async function savePlaylistOrder() {
+            clearError();
+            if (!accessToken) {
+                displayError("Authentication required to save.");
+                return;
+            }
+            if (tracksData.length === 0) {
+                 displayError("No tracks loaded to save.");
+                 return;
+            }
+
+            try {
+                // Get the current order of track URIs from the DOM
+                const trackElements = playlistContainer.querySelectorAll('.song-item');
+                const currentTrackUris = Array.from(trackElements).map(el => el.dataset.uri);
+
+                if (currentTrackUris.length === 0) {
+                     displayError("Cannot save an empty playlist order.");
+                     return;
+                }
+
+                console.log("Updating playlist with URIs:", currentTrackUris);
+
+                // Spotify API requires sending URIs in batches of 100 for replacement
+                const batchSize = 100;
+                for (let i = 0; i < currentTrackUris.length; i += batchSize) {
+                    const batchUris = currentTrackUris.slice(i, i + batchSize);
+                    const endpoint = `/playlists/${PLAYLIST_ID}/tracks`;
+                    const method = (i === 0) ? 'PUT' : 'POST'; // PUT replaces, POST adds
+                    const body = { uris: batchUris };
+                     if (method === 'POST') {
+                        body.position = i; // Specify position for subsequent batches if needed (though PUT replaces all)
+                    }
+
+                    // Using PUT should replace all tracks, so only the first call is needed if <= 100 tracks
+                    // If > 100 tracks, the first PUT replaces the first 100, then POST adds the rest.
+                    // Let's stick to PUT for simplicity assuming <= 100 tracks or that replacement is desired.
+                    // If playlists can be > 100, the logic needs adjustment (PUT first 100, POST subsequent).
+                    // For this app, let's assume PUT is sufficient and handles > 100 by replacing all.
+                     if (i === 0) { // Only send PUT once
+                        await fetchWebApi(endpoint, 'PUT', body);
+                        console.log(`Sent PUT request for first ${batchUris.length} tracks.`);
+                         if(currentTrackUris.length <= batchSize) break; // Exit if all tracks sent
+                    } else {
+                         // If > 100 tracks, Spotify API requires POST for adding more.
+                         // This logic might need refinement based on exact API behavior for > 100 tracks.
+                         // Let's assume for now the user primarily deals with <= 100 tracks or replaces fully.
+                         await fetchWebApi(endpoint, 'POST', { uris: batchUris, position: i });
+                         console.log(`Sent POST request for tracks starting at position ${i}.`);
+                    }
+                }
+
+                alert('Playlist order saved successfully on Spotify!');
+
+            } catch (error) {
+                displayError(`Failed to save playlist: ${error.message}`);
+            }
+        }
+
+        // Create a debounced version of savePlaylistOrder
+        const debouncedSavePlaylistOrder = debounce(savePlaylistOrder, 2000); // 2 second delay
+
+        // --- UI Rendering & Updates ---
+        function renderPlaylist() {
+            playlistContainer.innerHTML = ''; // Clear existing content
+            clearError();
+
+             if (!tracksData || tracksData.length === 0) {
+                playlistContainer.innerHTML = '<p>No tracks loaded or playlist is empty.</p>';
+                return;
+            }
+
+            let cumulativeDurationMs = 0;
+            let trackElements = []; // Store elements before assigning chapters
+
+             // First pass: Create elements and calculate initial timings
+             tracksData.forEach((item, index) => {
+                if (!item || !item.track) {
+                     console.warn("Skipping invalid track item:", item);
+                     return; // Skip if track data is missing
+                 }
+                const track = item.track;
+
+                const songItem = document.createElement('li');
+                songItem.classList.add('song-item');
+                songItem.draggable = true;
+                songItem.dataset.id = track.id || `no-id-${index}`; // Use index if ID is missing
+                songItem.dataset.uri = track.uri;
+                songItem.dataset.duration = track.duration_ms;
+                songItem.dataset.cumulativeStartMs = cumulativeDurationMs; // Store initial cumulative time
+
+                const startTime = new Date(weddingStartMs + cumulativeDurationMs);
+
+                // Build the move menu items
+                let moveMenuHTML = '';
+                chapterDefinitions.forEach((chap, chapIndex) => {
+                    if (chapIndex < chapterDefinitions.length - 1) { // Exclude the "End" chapter
+                         moveMenuHTML += `<button class="move-destination-button" data-target-chapter-index="${chapIndex}">${chap.name}</button>`;
+                    }
+                });
+
+                songItem.innerHTML = `
+                    <div class="song-details">
+                        <div class="song-title">${track.name || 'Untitled'}</div>
+                        <div class="song-artist">${track.artists?.map(a => a.name).join(', ') || 'Unknown Artist'}</div>
+                    </div>
+                    <div class="move-controls">
+                         <span class="move-trigger-button" title="Move song">↔️</span>
+                         <div class="move-menu">
+                            ${moveMenuHTML}
+                         </div>
+                    </div>
+                    <div class="song-timing">
+                        <span class="song-start-time" data-timing-type="start">Starts: ${formatTime(startTime)}</span>
+                        <span class="song-duration" data-timing-type="duration">Duration: ${formatDuration(track.duration_ms)}</span>
+                    </div>
+                `;
+
+                songItem.addEventListener('dragstart', handleDragStart);
+                songItem.addEventListener('dragend', handleDragEnd);
+                trackElements.push(songItem);
+
+                cumulativeDurationMs += track.duration_ms;
+            });
+
+
+            // Second pass: Create chapters and distribute track elements
+            let currentChapterIndex = 0;
+            let chapterSongLists = chapterDefinitions.map(() => []); // Array of arrays for songs per chapter
+
+            trackElements.forEach(songItem => {
+                 const cumulativeStartMs = parseInt(songItem.dataset.cumulativeStartMs, 10);
+                 const trackStartOffsetMinutes = cumulativeStartMs / (60 * 1000);
+
+                 let assignedChapterIndex = -1;
+                  for (let i = 0; i < chapterDefinitions.length -1; i++) { // Exclude the "End" marker for assignment range
+                     const chapter = chapterDefinitions[i];
+                     const nextChapter = chapterDefinitions[i + 1];
+                     if (trackStartOffsetMinutes >= chapter.startOffsetMinutes && trackStartOffsetMinutes < nextChapter.startOffsetMinutes) {
+                         assignedChapterIndex = i;
+                         break;
+                     }
+                 }
+                 // If not assigned (e.g., falls after the last defined start time but before "End"), put in last chapter
+                 if (assignedChapterIndex === -1 && trackStartOffsetMinutes >= chapterDefinitions[chapterDefinitions.length - 2].startOffsetMinutes) {
+                     assignedChapterIndex = chapterDefinitions.length - 2; // Assign to the "Party" chapter (or the one before "End")
+                 }
+
+
+                 if(assignedChapterIndex !== -1) {
+                    chapterSongLists[assignedChapterIndex].push(songItem);
+                    songItem.dataset.chapterIndex = assignedChapterIndex; // Mark the song's chapter
+                 } else {
+                     console.warn(`Could not assign track ${songItem.querySelector('.song-title').textContent} to a chapter.`);
+                     // Optionally add to a default/unassigned chapter
+                 }
+            });
+
+            // Third pass: Render chapters and their assigned songs
+            chapterDefinitions.forEach((chapter, index) => {
+                 if (index === chapterDefinitions.length - 1) return; // Don't render the "End" marker as a chapter section
+
+                const chapterDiv = document.createElement('div');
+                chapterDiv.classList.add('chapter');
+                chapterDiv.dataset.chapterIndex = index;
+                chapterDiv.id = `chapter-${index}`; // Add ID for marker linking
+
+                 const chapterHeader = document.createElement('div');
+                 chapterHeader.classList.add('chapter-header');
+                 chapterHeader.innerHTML = `
+                    <span class="chapter-toggle">▼</span> 
+                    <span class="chapter-title-text">
+                        ${chapter.name} <span>(Starts ${chapter.time})</span>
+                    </span>
+                 `;
+                 chapterDiv.appendChild(chapterHeader);
+
+                 const songList = document.createElement('ul');
+                 songList.classList.add('song-list');
+                 songList.dataset.chapterIndex = index; // Reference for dropping
+
+                 chapterSongLists[index].forEach(songItem => {
+                    songList.appendChild(songItem);
+                 });
+
+                 // Add drag over/drop listeners to the list itself
+                 songList.addEventListener('dragover', handleDragOver);
+                 songList.addEventListener('drop', handleDrop);
+                 songList.addEventListener('dragleave', handleDragLeave); // To remove indicator
+
+                 chapterDiv.appendChild(songList);
+                 playlistContainer.appendChild(chapterDiv);
+            });
+
+             console.log("Playlist rendered.");
+        }
+
+
+        function updateAllTimingsAndChapters() {
+            console.log("Updating timings with crossfade:", crossfadeMs / 1000, "s");
+            let cumulativeDurationMs = 0;
+            const allSongItems = Array.from(playlistContainer.querySelectorAll('.song-item'));
+            const chapterLists = Array.from(playlistContainer.querySelectorAll('.song-list')).map(ul => []); // Prepare new chapter lists
+            let previousSongDurationMs = 0; // Need duration of the previous song for crossfade calc
+
+             // Recalculate cumulative start times and update display for all tracks
+             allSongItems.forEach((songItem, index) => {
+                 const durationMs = parseInt(songItem.dataset.duration, 10);
+                 
+                 // Adjust cumulative time based on crossfade *before* setting the current song's time
+                 if (index > 0) { 
+                     // Start time is previous song's start time + previous song's duration - crossfade
+                     cumulativeDurationMs = (cumulativeDurationMs - previousSongDurationMs) + Math.max(0, previousSongDurationMs - crossfadeMs);
+                 }
+
+                 songItem.dataset.cumulativeStartMs = cumulativeDurationMs; // Update stored cumulative time
+
+                 const startTime = new Date(weddingStartMs + cumulativeDurationMs);
+                 const startTimeSpan = songItem.querySelector('.song-start-time');
+                 if(startTimeSpan) startTimeSpan.textContent = `Starts: ${formatTime(startTime)}`;
+
+                 // Determine new chapter based on the recalculated time
+                 const trackStartOffsetMinutes = cumulativeDurationMs / (60 * 1000);
+                 let newChapterIndex = -1;
+                  for (let i = 0; i < chapterDefinitions.length -1; i++) {
+                     const chapter = chapterDefinitions[i];
+                     const nextChapter = chapterDefinitions[i + 1];
+                     if (trackStartOffsetMinutes >= chapter.startOffsetMinutes && trackStartOffsetMinutes < nextChapter.startOffsetMinutes) {
+                         newChapterIndex = i;
+                         break;
+                     }
+                 }
+                  if (newChapterIndex === -1 && trackStartOffsetMinutes >= chapterDefinitions[chapterDefinitions.length - 2].startOffsetMinutes) {
+                     newChapterIndex = chapterDefinitions.length - 2;
+                 }
+
+                 if (newChapterIndex !== -1) {
+                     songItem.dataset.chapterIndex = newChapterIndex; // Update chapter index marker
+                     chapterLists[newChapterIndex].push(songItem); // Add to the correct list for re-rendering
+                 } else {
+                      console.warn(`Could not assign track ${songItem.querySelector('.song-title').textContent} to a chapter during update.`);
+                      // Decide how to handle tracks that fall outside chapters after reorder
+                 }
+
+                 // Add the full duration for the *next* song's calculation base
+                 cumulativeDurationMs += durationMs; 
+                 previousSongDurationMs = durationMs; // Store for the next iteration's crossfade calculation
+            });
+
+             // Re-append songs to the correct chapter lists in the DOM
+            playlistContainer.querySelectorAll('.song-list').forEach((list, listIndex) => {
+                list.innerHTML = ''; // Clear current list
+                chapterLists[listIndex].forEach(songItem => {
+                    list.appendChild(songItem); // Append songs belonging to this chapter
+                });
+            });
+             console.log("Timings updated.");
+        }
+
+
+        // --- Drag and Drop Handlers ---
+        let draggedItem = null;
+        let dropIndicator = null;
+
+         function createDropIndicator() {
+            const indicator = document.createElement('div');
+            indicator.classList.add('drop-indicator');
+            return indicator;
+        }
+
+        function handleDragStart(e) {
+            draggedItem = e.target;
+            e.dataTransfer.setData('text/plain', draggedItem.dataset.id); // Transfer data (optional but good practice)
+            // Use setTimeout to allow the browser to render the drag image before applying style
+            setTimeout(() => {
+                 draggedItem.classList.add('dragging');
+            }, 0);
+             console.log("Drag start:", draggedItem.dataset.id);
+        }
+
+        function handleDragEnd(e) {
+             if (draggedItem) {
+                draggedItem.classList.remove('dragging');
+            }
+            removeDropIndicator(); // Ensure indicator is removed
+            draggedItem = null;
+             console.log("Drag end");
+        }
+
+         function handleDragOver(e) {
+            e.preventDefault(); // Necessary to allow dropping
+            const targetList = e.target.closest('.song-list');
+            if (!targetList || !draggedItem) return;
+
+            removeDropIndicator(); // Remove previous indicator
+            dropIndicator = createDropIndicator(); // Create new one
+
+            // Determine where to place the indicator
+            const sibling = getDragAfterElement(targetList, e.clientY);
+             if (sibling) {
+                 targetList.insertBefore(dropIndicator, sibling);
+             } else {
+                 targetList.appendChild(dropIndicator); // Append if at the end
+             }
+        }
+
+         function handleDragLeave(e) {
+            // Remove indicator only if leaving the list container itself, not just moving over child elements
+             if (e.target.classList.contains('song-list')) {
+                 removeDropIndicator();
+             }
+         }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            removeDropIndicator();
+            const targetList = e.target.closest('.song-list');
+
+            if (!targetList || !draggedItem) {
+                console.log("Drop canceled: No target list or dragged item.");
+                return;
+            }
+
+             // Prevent dropping onto itself (optional, but can avoid unnecessary updates)
+            // if (e.target === draggedItem) return;
+
+
+             // Find the correct position to insert
+             const afterElement = getDragAfterElement(targetList, e.clientY);
+
+             if (afterElement) {
+                 targetList.insertBefore(draggedItem, afterElement);
+             } else {
+                 targetList.appendChild(draggedItem); // Append to the end
+             }
+             console.log("Dropped:", draggedItem.dataset.id, "into chapter list:", targetList.dataset.chapterIndex);
+
+
+            // IMPORTANT: Update timings and re-assign chapters after drop
+            updateAllTimingsAndChapters();
+            // Trigger debounced save after drop
+            debouncedSavePlaylistOrder();
+        }
+
+         function removeDropIndicator() {
+             if (dropIndicator && dropIndicator.parentNode) {
+                 dropIndicator.parentNode.removeChild(dropIndicator);
+             }
+             dropIndicator = null;
+         }
+
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.song-item:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+
+        // --- Initialization ---
+        async function initializeApp() {
+            // Set initial crossfade display and add listener
+            if (crossfadeSlider && crossfadeValueDisplay) {
+                crossfadeValueDisplay.textContent = `${crossfadeSlider.value} s`;
+                crossfadeMs = parseInt(crossfadeSlider.value, 10) * 1000;
+                crossfadeSlider.addEventListener('input', (event) => {
+                    const seconds = parseInt(event.target.value, 10);
+                    crossfadeMs = seconds * 1000;
+                    crossfadeValueDisplay.textContent = `${seconds} s`;
+                    // Recalculate everything when slider changes
+                    updateAllTimingsAndChapters();
+                });
+            }
+
+            // Add delegated listener for chapter header clicks
+            if (playlistContainer) {
+                playlistContainer.addEventListener('click', handleChapterHeaderClick);
+            }
+            // Add listener to the *document* for handling move menu interactions and closing
+            document.addEventListener('click', (event) => {
+                 // Handle Move Trigger Clicks (needs to check if target is within playlistContainer)
+                const moveTrigger = event.target.closest('.move-trigger-button');
+                if (moveTrigger && playlistContainer.contains(moveTrigger)) {
+                    handleMoveTriggerClick(moveTrigger);
+                    return; // Handled
+                }
+
+                // Handle Move Destination Clicks (needs to check if target is within playlistContainer)
+                const moveDestination = event.target.closest('.move-destination-button');
+                if (moveDestination && playlistContainer.contains(moveDestination)) {
+                     handleMoveDestinationClick(moveDestination);
+                     return; // Handled
+                }
+
+                // If click was outside an open move menu and its trigger, close menus
+                // Check if the click target is NOT within any .move-menu or .move-trigger-button
+                if (!event.target.closest('.move-menu') && !event.target.closest('.move-trigger-button')) {
+                     closeAllMoveMenus();
+                }
+            });
+
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const error = params.get('error');
+
+            // Clear query parameters from URL for cleaner state
+            if (code || error) {
+                const url = new URL(window.location.href);
+                url.search = ''; // Remove query string
+                window.history.replaceState({}, document.title, url.toString());
+            }
+
+             if (CLIENT_ID === 'YOUR_SPOTIFY_CLIENT_ID') {
+                 displayError("Please replace 'YOUR_SPOTIFY_CLIENT_ID' in the script section with your actual Spotify Client ID.");
+                 authSection.style.display = 'none';
+                 return;
+             }
+
+            if (error) {
+                displayError(`Authorization failed: ${error}. Please try logging in again.`);
+                authSection.style.display = 'block';
+                controlsSection.style.display = 'none';
+                reloadButton.style.display = 'none'; // Hide reload button
+                if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                loginButton.addEventListener('click', requestAuthorization);
+                return;
+            }
+
+            if (code) {
+                // We have an authorization code, exchange it for tokens
+                console.log("Authorization code found, attempting token exchange...");
+                authSection.style.display = 'none'; // Hide login while processing
+                const success = await getTokensFromCode(code);
+                if (success) {
+                    await loadAppContent();
+                } else {
+                    // Token exchange failed, show login again
+                    authSection.style.display = 'block';
+                    controlsSection.style.display = 'none';
+                    reloadButton.style.display = 'none'; // Hide reload button
+                    if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                    loginButton.addEventListener('click', requestAuthorization);
+                }
+            } else if (/* check for stored valid token if implementing persistence */ false) {
+                // TODO: If implementing token storage, check here first
+                // accessToken = localStorage.getItem('spotify_access_token');
+                // refreshToken = localStorage.getItem('spotify_refresh_token');
+                // console.log("Using stored token.");
+                // await loadAppContent();
+            } else {
+                // No code, no stored token - show login button
+                console.log("No authorization code or stored token found, showing login button.");
+                authSection.style.display = 'block';
+                controlsSection.style.display = 'none';
+                reloadButton.style.display = 'none'; // Hide reload button
+                if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                loginButton.addEventListener('click', requestAuthorization);
+            }
+        }
+
+        async function loadAppContent() {
+            console.log("Loading app content...");
+            authSection.style.display = 'none';
+            controlsSection.style.display = 'block';
+            reloadButton.style.display = 'block'; // Show reload button
+            if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'flex'; // Show markers
+
+            // Add listener only once, or check if exists before adding
+            if (!reloadButton.dataset.listenerAttached) { 
+                 reloadButton.addEventListener('click', async () => {
+                     console.log("Reload button clicked, reloading playlist...");
+                     clearError();
+                     reloadButton.disabled = true; // Basic loading indicator
+                     reloadButton.style.cursor = 'wait';
+                     try {
+                         await loadAppContent(); // Call itself to reload
+                     } catch (reloadError) {
+                         // Error already displayed by loadAppContent's catch block
+                         console.error("Error during reload:", reloadError);
+                     } finally {
+                         reloadButton.disabled = false;
+                         reloadButton.style.cursor = 'pointer';
+                     }
+                 });
+                 reloadButton.dataset.listenerAttached = 'true'; // Mark listener as attached
+            }
+
+            // Add scroll listener here, ensuring it's only added once
+            if (!window.scrollListenerAttached) {
+                 window.addEventListener('scroll', throttledUpdateActiveMarker);
+                 window.scrollListenerAttached = true; // Flag to prevent re-adding
+            }
+
+            try {
+                const items = await fetchAllPlaylistTracks(PLAYLIST_ID);
+                tracksData = items;
+                renderPlaylist(); // Initial render - NOTE: This doesn't apply crossfade initially, updateAllTimings does
+                updateAllTimingsAndChapters(); // Apply initial crossfade immediately after rendering
+                generateChapterMarkers(); // Generate markers after chapters are rendered
+                updateActiveMarker(); // Set initial active marker state
+            } catch (error) {
+                displayError(`Failed to load playlist: ${error.message}`);
+                // Decide how to handle failure - maybe show login?
+                 authSection.style.display = 'block';
+                 controlsSection.style.display = 'none';
+                 reloadButton.style.display = 'none'; // Hide reload button on error
+                 if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers on error
+                 accessToken = null; // Clear potentially invalid token
+                 refreshToken = null;
+                 loginButton.addEventListener('click', requestAuthorization);
+            }
+        }
+
+        // --- Chapter Collapse/Expand ---
+        function handleChapterHeaderClick(event) {
+            const header = event.target.closest('.chapter-header');
+            if (!header) return; // Click wasn't on a header
+
+            const chapterElement = header.closest('.chapter');
+            const toggleIcon = header.querySelector('.chapter-toggle');
+
+            if (chapterElement && toggleIcon) {
+                chapterElement.classList.toggle('collapsed');
+                // Update icon based on collapsed state
+                if (chapterElement.classList.contains('collapsed')) {
+                    toggleIcon.textContent = '►'; // Right arrow for collapsed
+                } else {
+                    toggleIcon.textContent = '▼'; // Down arrow for expanded
+                }
+            }
+        }
+
+        // --- Move Song Handling ---
+        function closeAllMoveMenus() {
+            document.querySelectorAll('.move-menu.visible').forEach(menu => {
+                menu.classList.remove('visible');
+            });
+        }
+
+        function handleMoveTriggerClick(button) {
+             const menu = button.nextElementSibling; // Assuming menu is directly after the button
+             if (!menu || !menu.classList.contains('move-menu')) return;
+             
+             const isVisible = menu.classList.contains('visible');
+             // Close all menus first
+             closeAllMoveMenus();
+             // Toggle the current menu only if it wasn't already visible
+             if (!isVisible) {
+                menu.classList.add('visible');
+             }
+        }
+
+        function handleMoveDestinationClick(button) {
+            const targetChapterIndex = button.dataset.targetChapterIndex;
+            const songItem = button.closest('.song-item');
+            const currentChapterIndex = songItem.dataset.chapterIndex;
+
+            if (targetChapterIndex === undefined || !songItem || targetChapterIndex === currentChapterIndex) {
+                 console.warn("Move destination click ignored (invalid target, song, or same chapter).");
+                 closeAllMoveMenus();
+                 return;
+             }
+
+             const targetList = playlistContainer.querySelector(`.song-list[data-chapter-index="${targetChapterIndex}"]`);
+             if (targetList) {
+                 console.log(`Moving song ${songItem.querySelector('.song-title').textContent} to chapter ${targetChapterIndex}`);
+                 targetList.appendChild(songItem); // Move the element
+                 closeAllMoveMenus();
+                 updateAllTimingsAndChapters(); // Recalculate everything
+             } else {
+                 console.error(`Could not find target list for chapter index ${targetChapterIndex}`);
+                 closeAllMoveMenus();
+             }
+             // Trigger debounced save after move
+             debouncedSavePlaylistOrder();
+        }
+
+        // --- Chapter Markers Logic ---
+        function generateChapterMarkers() {
+             if (!chapterMarkersContainer) return;
+             chapterMarkersContainer.innerHTML = ''; // Clear existing markers
+             chapterDefinitions.forEach((chapter, index) => {
+                 if (index < chapterDefinitions.length - 1) { // Exclude "End"
+                     const markerLink = document.createElement('a');
+                     markerLink.href = `#chapter-${index}`;
+                     markerLink.textContent = chapter.name;
+                     markerLink.dataset.markerIndex = index;
+                     markerLink.title = `Scroll to ${chapter.name}`;
+                     chapterMarkersContainer.appendChild(markerLink);
+                 }
+             });
+        }
+
+         function updateActiveMarker() {
+             if (!chapterMarkersContainer) return;
+             let activeChapterIndex = -1;
+             const scrollY = window.scrollY;
+             // Threshold: How far down the screen an element needs to be before considered active
+             // Adjust this value based on visual preference
+             const threshold = window.innerHeight * 0.3; // 30% down from top
+
+             const chapterDivs = playlistContainer.querySelectorAll('.chapter');
+
+             chapterDivs.forEach(chapterDiv => {
+                 const rect = chapterDiv.getBoundingClientRect();
+                 // Check if the top of the chapter is above the threshold
+                 if (rect.top < threshold) {
+                     activeChapterIndex = parseInt(chapterDiv.dataset.chapterIndex, 10);
+                 }
+             });
+             
+            // console.log("Updating active marker. Calculated index:", activeChapterIndex); // Removed log
+
+             // Update marker classes
+             chapterMarkersContainer.querySelectorAll('a').forEach(marker => {
+                 if (parseInt(marker.dataset.markerIndex, 10) === activeChapterIndex) {
+                     marker.classList.add('active');
+                 } else {
+                     marker.classList.remove('active');
+                 }
+             });
+        }
+        
+        // Throttled version for scroll events
+        const throttledUpdateActiveMarker = throttle(updateActiveMarker, 150); // Check ~6 times/sec
+
+        function handleMarkerClick(event) {
+             if (event.target.tagName === 'A' && chapterMarkersContainer.contains(event.target)) {
+                 event.preventDefault();
+                 const targetId = event.target.getAttribute('href');
+                 const targetElement = document.querySelector(targetId);
+                 if (targetElement) {
+                     targetElement.scrollIntoView({ behavior: 'smooth' });
+                 }
+             }
+        }
+
+        // --- Run ---
+        initializeApp();
+
+    </script>
+
+</body>
+</html> 
