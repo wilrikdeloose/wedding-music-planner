@@ -635,9 +635,9 @@
                 const tokenData = await response.json();
                 accessToken = tokenData.access_token;
                 refreshToken = tokenData.refresh_token; // Store refresh token
-                // Optionally store tokens in localStorage/sessionStorage for persistence
-                // localStorage.setItem('spotify_access_token', accessToken);
-                // localStorage.setItem('spotify_refresh_token', refreshToken);
+                // Store tokens in localStorage for persistence
+                localStorage.setItem('spotify_access_token', accessToken);
+                localStorage.setItem('spotify_refresh_token', refreshToken);
                 console.log("Token received successfully.");
                 localStorage.removeItem('spotify_code_verifier'); // Clean up verifier
                 return true;
@@ -1171,49 +1171,47 @@
                  return;
              }
 
-            if (error) {
-                displayError(`Authorization failed: ${error}. Please try logging in again.`);
-                authSection.style.display = 'block';
-                controlsSection.style.display = 'none';
-                reloadButton.style.display = 'none'; // Hide reload button
-                if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
-                if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
-                loginButton.addEventListener('click', requestAuthorization);
-                return;
-            }
+             if (error) {
+                 displayError(`Authorization failed: ${error}. Please try logging in again.`);
+                 authSection.style.display = 'block';
+                 controlsSection.style.display = 'none';
+                 reloadButton.style.display = 'none'; // Hide reload button
+                 if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                 if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
+                 loginButton.addEventListener('click', requestAuthorization);
+                 return;
+             }
 
-            if (code) {
-                // We have an authorization code, exchange it for tokens
-                console.log("Authorization code found, attempting token exchange...");
-                authSection.style.display = 'none'; // Hide login while processing
-                const success = await getTokensFromCode(code);
-                if (success) {
-                    await loadAppContent();
-                } else {
-                    // Token exchange failed, show login again
-                    authSection.style.display = 'block';
-                    controlsSection.style.display = 'none';
-                    reloadButton.style.display = 'none'; // Hide reload button
-                    if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
-                    if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
-                    loginButton.addEventListener('click', requestAuthorization);
-                }
-            } else if (/* check for stored valid token if implementing persistence */ false) {
-                // TODO: If implementing token storage, check here first
-                // accessToken = localStorage.getItem('spotify_access_token');
-                // refreshToken = localStorage.getItem('spotify_refresh_token');
-                // console.log("Using stored token.");
-                // await loadAppContent();
-                controlsSection.style.display = 'none';
-                reloadButton.style.display = 'none'; // Hide reload button
-                if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
-                if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
-                loginButton.addEventListener('click', requestAuthorization);
-            } else {
-                // No code, no stored token - show login button
-                console.log("No authorization code or stored token found, redirecting to Spotify login...");
-                requestAuthorization();
-            }
+             // Check for stored token first
+             const storedAccessToken = localStorage.getItem('spotify_access_token');
+             const storedRefreshToken = localStorage.getItem('spotify_refresh_token');
+
+             if (storedAccessToken) {
+                 console.log("Using stored Spotify token.");
+                 accessToken = storedAccessToken;
+                 refreshToken = storedRefreshToken; // Might be null if stored by older version
+                 await loadAppContent();
+             } else if (code) {
+                 // We have an authorization code, exchange it for tokens
+                 console.log("Authorization code found, attempting token exchange...");
+                 authSection.style.display = 'none'; // Hide login while processing
+                 const success = await getTokensFromCode(code);
+                 if (success) {
+                     await loadAppContent();
+                 } else {
+                     // Token exchange failed, show login again
+                     authSection.style.display = 'block';
+                     controlsSection.style.display = 'none';
+                     reloadButton.style.display = 'none'; // Hide reload button
+                     if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
+                     if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
+                     loginButton.addEventListener('click', requestAuthorization);
+                 }
+             } else {
+                 // No code, no stored token - redirect immediately
+                 console.log("No authorization code or stored token found, redirecting to Spotify login...");
+                 requestAuthorization();
+             }
         }
 
         async function loadAppContent() {
