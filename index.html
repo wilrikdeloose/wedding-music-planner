@@ -128,6 +128,14 @@
             cursor: grabbing;
         }
 
+        .song-number {
+            font-size: 0.9em;
+            color: #aaa;
+            width: 2.5em; /* Fixed width for alignment */
+            text-align: right;
+            margin-right: 10px;
+        }
+
         .song-details {
             flex-grow: 1;
             margin-right: 15px;
@@ -799,6 +807,7 @@
                 });
 
                 songItem.innerHTML = `
+                    <span class="song-number">${index + 1}.</span>
                     <div class="song-details">
                         <div class="song-title">${track.name || 'Untitled'}</div>
                         <div class="song-artist">${track.artists?.map(a => a.name).join(', ') || 'Unknown Artist'}</div>
@@ -913,6 +922,12 @@
                  }
 
                  songItem.dataset.cumulativeStartMs = cumulativeDurationMs; // Update stored cumulative time
+
+                 // Update song number
+                 const songNumberSpan = songItem.querySelector('.song-number');
+                 if (songNumberSpan) {
+                    songNumberSpan.textContent = `${index + 1}.`;
+                 }
 
                  const startTime = new Date(weddingStartMs + cumulativeDurationMs);
                  const startTimeSpan = songItem.querySelector('.song-start-time');
