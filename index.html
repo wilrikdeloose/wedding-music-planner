@@ -381,11 +381,144 @@
             font-weight: bold;
         }
 
+        /* --- START ADDITION: Config Panel Styles --- */
+        #config-button {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 115; /* Above notifications */
+            font-size: 1.5em;
+            padding: 5px 10px;
+            line-height: 1;
+            /* Use default button styles */
+        }
+
+        #config-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 190; /* Below panel */
+            display: none; /* Hidden by default */
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #config-overlay.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        #config-panel {
+            position: fixed;
+            top: 0;
+            left: -350px; /* Start off-screen (left) */
+            width: 320px;
+            height: 100%;
+            background-color: #f0f0f0;
+            z-index: 200; /* Above overlay */
+            box-shadow: 3px 0 10px rgba(0, 0, 0, 0.2); /* Shadow on right */
+            padding: 20px;
+            transition: left 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* RE-ADD GAP */
+            /* overflow-y: auto; */ /* Keep overflow removed */
+        }
+        #config-panel.visible {
+            left: 0;
+        }
+        #config-panel h2 {
+            margin-top: 0;
+            color: #5a2a88;
+            text-align: center;
+        }
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .config-item label {
+            font-weight: bold;
+            color: #333;
+        }
+        .config-item input[type="text"],
+        .config-item input[type="range"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        /* Specifically style the moved crossfade control */
+        #crossfade-control {
+            flex-direction: row; /* Keep slider horizontal */
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px; /* Add some space */
+            justify-content: space-between;
+        }
+        #crossfade-control label {
+             flex-shrink: 0; /* Prevent label from shrinking */
+        }
+        #crossfade-slider {
+            flex-grow: 1; /* Allow slider to take up space */
+            width: auto; /* Override previous fixed width */
+        }
+        #crossfade-value {
+             min-width: 40px; /* Adjust from previous */
+             text-align: right;
+             font-weight: bold;
+        }
+        #config-panel button {
+             /* Inherit base button styles */
+             margin-top: auto; /* Push save button towards bottom */
+             padding: 12px 20px;
+        }
+         #close-config-button {
+            position: absolute;
+            top: 10px;
+            left: 10px; /* Move close button to top-left */
+            background: none;
+            border: none;
+            font-size: 1.8em;
+            color: #aaa;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+         #close-config-button:hover {
+            color: #333;
+        }
+        /* --- END ADDITION --- */
+
+        /* --- START ADDITION: Scrollable Area Style --- */
+        #config-scrollable-content {
+            flex-grow: 1; /* Allow this area to take up available space */
+            overflow-y: auto; /* Make this area scrollable */
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Apply gap to items inside scrollable area */
+            padding-bottom: 5px; /* Small space at bottom of scroll */
+        }
+        /* --- END ADDITION --- */
+
+        #config-panel button#save-config-button { 
+             /* margin-top: auto; */ /* Keep removed */
+             flex-shrink: 0; /* Keep this line */
+             /* Keep existing padding etc. */
+             padding: 12px 20px;
+        }
+
     </style>
 </head>
 <body>
     <!-- Notification Area -->
     <div id="notification-area"></div>
+
+    <!-- START ADDITION: Config Button -->
+    <button id="config-button" title="Settings">☰</button>
+    <!-- END ADDITION -->
 
     <h1>Wedding Playlist Organizer</h1>
 
@@ -395,13 +528,34 @@
 
     <div id="error-message"></div>
 
-    <div id="controls" style="display: none;">
-        <div id="crossfade-control">
-            <label for="crossfade-slider">Crossfade:</label>
-            <input type="range" id="crossfade-slider" name="crossfade" min="0" max="12" step="1" value="5">
-            <span id="crossfade-value">5 s</span>
+    <!-- START ADDITION: Config Panel -->
+    <div id="config-panel">
+        <h2>Settings</h2>
+        <!-- START ADDITION: Scrollable content wrapper -->
+        <div id="config-scrollable-content">
+            <div class="config-item">
+                <label for="config-playlist-id">Playlist ID/URL:</label>
+                <input type="text" id="config-playlist-id">
+            </div>
+            <div class="config-item">
+                <label for="config-client-id">Client ID:</label>
+                <input type="text" id="config-client-id">
+            </div>
+            
+            <!-- Crossfade control moved here -->
+            <div id="crossfade-control" class="config-item">
+                <label for="crossfade-slider">Crossfade:</label>
+                <input type="range" id="crossfade-slider" name="crossfade" min="0" max="12" step="1" value="5">
+                <span id="crossfade-value">5 s</span>
+            </div>
         </div>
+        <!-- END ADDITION -->
+
+        <button id="save-config-button">Save Settings</button>
+        <button id="close-config-button" title="Close Settings">✕</button> 
     </div>
+    <div id="config-overlay"></div> <!-- Optional overlay -->
+    <!-- END ADDITION -->
 
     <div id="playlist-container">
         <!-- Chapters and songs will be loaded here -->
@@ -418,8 +572,10 @@
 
     <script>
         // --- Configuration ---
-        const CLIENT_ID = 'ebad4e59324d46508365b346bb259963';
-        const PLAYLIST_ID = '2S0g60Pj6okGDTvSUBgBs5'; // The specific playlist
+        let CLIENT_ID = 'ebad4e59324d46508365b346bb259963'; 
+        let PLAYLIST_ID = '2S0g60Pj6okGDTvSUBgBs5'; // Default playlist
+        const DEFAULT_CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID'; // Keep a default for placeholder check
+        const DEFAULT_PLAYLIST_ID = 'YOUR_SPOTIFY_PLAYLIST_ID'; // Example default placeholder
         const REDIRECT_URI = window.location.origin + window.location.pathname; // Use current page URL
         const SCOPES = 'playlist-read-private playlist-modify-public playlist-modify-private user-modify-playback-state';
 
@@ -445,7 +601,6 @@
         // --- DOM Elements ---
         const loginButton = document.getElementById('login-button');
         const authSection = document.getElementById('auth-section');
-        const controlsSection = document.getElementById('controls');
         const playlistContainer = document.getElementById('playlist-container');
         const errorMessageDiv = document.getElementById('error-message');
         const crossfadeSlider = document.getElementById('crossfade-slider');
@@ -456,6 +611,16 @@
         const manualSaveButton = document.getElementById('manual-save-button');
         // const audioPreviewElement = document.getElementById('audio-preview'); // Remove reference
         // let currentlyPlayingPreviewButton = null; // Remove tracker
+
+        // --- START ADDITION: Config Panel Elements ---
+        const configButton = document.getElementById('config-button');
+        const configPanel = document.getElementById('config-panel');
+        const configOverlay = document.getElementById('config-overlay');
+        const configPlaylistInput = document.getElementById('config-playlist-id');
+        const configClientIdInput = document.getElementById('config-client-id');
+        const saveConfigButton = document.getElementById('save-config-button');
+        const closeConfigButton = document.getElementById('close-config-button');
+        // --- END ADDITION ---
 
         // --- Utility Functions ---
         // Debounce function
@@ -629,6 +794,20 @@
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
+                    // --- START ADDITION: Handle 401 Unauthorized ---
+                    if (response.status === 401) {
+                        console.error("Access token expired or invalid. Clearing tokens and redirecting to login.");
+                        accessToken = null;
+                        refreshToken = null;
+                        localStorage.removeItem('spotify_access_token');
+                        localStorage.removeItem('spotify_refresh_token');
+                        // Optionally display a message before redirecting
+                        // showNotification("Your session expired. Redirecting to Spotify login...", true);
+                        requestAuthorization(); // Redirect to login
+                        // Throw an error to stop further processing in the calling function
+                        throw new Error(`Spotify API Error: 401 Unauthorized. Redirecting...`); 
+                    }
+                    // --- END ADDITION ---
                     throw new Error(`Token exchange failed: ${response.status} ${response.statusText}. ${errorData.error_description || errorData.error || ''}`);
                 }
 
@@ -666,6 +845,20 @@
 
                 if (!res.ok) {
                     const errorData = await res.json().catch(() => ({})); // Try to get error details
+                    // --- START ADDITION: Handle 401 Unauthorized ---
+                    if (res.status === 401) {
+                        console.error("Access token expired or invalid. Clearing tokens and redirecting to login.");
+                        accessToken = null;
+                        refreshToken = null;
+                        localStorage.removeItem('spotify_access_token');
+                        localStorage.removeItem('spotify_refresh_token');
+                        // Optionally display a message before redirecting
+                        // showNotification("Your session expired. Redirecting to Spotify login...", true);
+                        requestAuthorization(); // Redirect to login
+                        // Throw an error to stop further processing in the calling function
+                        throw new Error(`Spotify API Error: 401 Unauthorized. Redirecting...`); 
+                    }
+                    // --- END ADDITION ---
                     throw new Error(`Spotify API Error: ${res.status} ${res.statusText}. ${errorData.error?.message || ''}`);
                 }
                  // Handle cases where response might be empty (e.g., PUT requests with 204)
@@ -1084,18 +1277,171 @@
         }
 
 
+        // --- START ADDITION: Config Panel Logic ---
+        function extractPlaylistId(input) {
+            if (!input) return null;
+            try {
+                // Check if it's a valid Spotify URL
+                const url = new URL(input);
+                if (url.hostname === 'open.spotify.com' && url.pathname.includes('/playlist/')) {
+                    const parts = url.pathname.split('/');
+                    return parts[parts.indexOf('playlist') + 1];
+                }
+            } catch (_) {
+                // Not a URL, assume it's an ID if it looks like one (alphanumeric, length > ~10)
+                if (/^[a-zA-Z0-9]{10,}$/.test(input)) {
+                    return input;
+                }
+            }
+            return null; // Return null if not a valid URL or likely ID
+        }
+
+        function loadConfiguration() {
+            console.log("Loading configuration from localStorage...");
+            const savedClientId = localStorage.getItem('spotify_client_id');
+            const savedPlaylistId = localStorage.getItem('spotify_playlist_id');
+            const savedCrossfade = localStorage.getItem('crossfade_seconds');
+
+            if (savedClientId) {
+                CLIENT_ID = savedClientId;
+                console.log("Loaded Client ID:", CLIENT_ID);
+            }
+            if (savedPlaylistId) {
+                PLAYLIST_ID = savedPlaylistId;
+                console.log("Loaded Playlist ID:", PLAYLIST_ID);
+            }
+            if (savedCrossfade !== null) {
+                const seconds = parseInt(savedCrossfade, 10);
+                if (!isNaN(seconds) && seconds >= 0 && seconds <= 12) {
+                    crossfadeMs = seconds * 1000;
+                    if (crossfadeSlider) crossfadeSlider.value = seconds; // Update slider UI
+                    if (crossfadeValueDisplay) crossfadeValueDisplay.textContent = `${seconds} s`; // Update display UI
+                     console.log("Loaded Crossfade:", seconds, "s");
+                }
+            }
+
+            // Populate the config panel inputs
+            if (configClientIdInput) configClientIdInput.value = CLIENT_ID;
+            if (configPlaylistInput) configPlaylistInput.value = PLAYLIST_ID;
+             // Slider/value already updated above
+        }
+
+        function saveConfiguration() {
+            const newClientId = configClientIdInput.value.trim();
+            const playlistInputValue = configPlaylistInput.value.trim();
+            const newCrossfadeSeconds = parseInt(crossfadeSlider.value, 10); // Ensure it's a number
+
+            const newPlaylistId = extractPlaylistId(playlistInputValue);
+
+            if (!newClientId) {
+                showNotification("Client ID cannot be empty.", true);
+                return;
+            }
+            if (!newPlaylistId) {
+                showNotification("Invalid Playlist ID or URL entered.", true);
+                configPlaylistInput.value = PLAYLIST_ID; // Reset input to current valid ID
+                return;
+            }
+            if (isNaN(newCrossfadeSeconds) || newCrossfadeSeconds < 0 || newCrossfadeSeconds > 12) {
+                 showNotification("Invalid Crossfade value.", true);
+                 return;
+            }
+            
+            // Store previous values to check for functional changes
+            const previousClientId = CLIENT_ID;
+            const previousPlaylistId = PLAYLIST_ID;
+            const previousCrossfadeMs = crossfadeMs;
+
+            // --- START CHANGE: Always save validated values --- 
+            CLIENT_ID = newClientId;
+            PLAYLIST_ID = newPlaylistId;
+            crossfadeMs = newCrossfadeSeconds * 1000;
+
+            localStorage.setItem('spotify_client_id', CLIENT_ID);
+            localStorage.setItem('spotify_playlist_id', PLAYLIST_ID);
+            localStorage.setItem('crossfade_seconds', newCrossfadeSeconds.toString());
+
+            console.log("Saved Client ID:", CLIENT_ID);
+            console.log("Saved Playlist ID:", PLAYLIST_ID);
+            console.log("Saved Crossfade:", newCrossfadeSeconds, "s");
+            // --- END CHANGE ---
+
+            // Check if functional values changed and trigger side effects
+            const clientIdChanged = CLIENT_ID !== previousClientId;
+            const playlistIdChanged = PLAYLIST_ID !== previousPlaylistId;
+
+            closeConfigPanel();
+            showNotification("Settings saved.");
+            
+            // --- START CHANGE: Always update timings after saving crossfade ---
+            // Update timings immediately if crossfade was potentially changed
+            if (tracksData.length > 0) {
+                 console.log("Applying saved crossfade value to timings..."); // Add log
+                 updateAllTimingsAndChapters();
+            }
+            // Update UI display just in case (redundant but safe)
+            if(crossfadeValueDisplay) crossfadeValueDisplay.textContent = `${newCrossfadeSeconds} s`;
+            // --- END CHANGE ---
+
+            if (playlistIdChanged) {
+                if (accessToken) { // Only reload if authenticated
+                     showNotification("Playlist ID changed. Reloading...");
+                     loadAppContent(); 
+                } else {
+                     showNotification("Playlist ID updated. Please login.");
+                }
+            }
+            
+            if (clientIdChanged) {
+                showNotification("Client ID changed. Please refresh the page or re-login for changes to take effect.", true);
+                 // Clear stored token if Client ID changed, forcing re-auth via redirect
+                 accessToken = null;
+                 refreshToken = null;
+                 localStorage.removeItem('spotify_access_token');
+                 localStorage.removeItem('spotify_refresh_token');
+                 // Optionally force redirect immediately:
+                 // requestAuthorization(); 
+            }
+        }
+
+        function openConfigPanel() {
+            if (configPanel && configOverlay) {
+                configPanel.classList.add('visible');
+                configOverlay.classList.add('visible');
+                // Re-populate inputs in case defaults were loaded initially
+                configClientIdInput.value = CLIENT_ID;
+                configPlaylistInput.value = PLAYLIST_ID;
+            }
+        }
+
+        function closeConfigPanel() {
+             if (configPanel && configOverlay) {
+                configPanel.classList.remove('visible');
+                configOverlay.classList.remove('visible');
+            }
+        }
+        // --- END ADDITION ---
+
         // --- Initialization ---
         async function initializeApp() {
+            // --- START ADDITION: Load Config FIRST ---
+            loadConfiguration();
+            // --- END ADDITION ---
+
             // Set initial crossfade display and add listener
             if (crossfadeSlider && crossfadeValueDisplay) {
-                crossfadeValueDisplay.textContent = `${crossfadeSlider.value} s`;
-                crossfadeMs = parseInt(crossfadeSlider.value, 10) * 1000;
+                // crossfadeValueDisplay.textContent = `${crossfadeSlider.value} s`; // Value set in loadConfig
+                // crossfadeMs = parseInt(crossfadeSlider.value, 10) * 1000; // Value set in loadConfig
                 crossfadeSlider.addEventListener('input', (event) => {
                     const seconds = parseInt(event.target.value, 10);
-                    crossfadeMs = seconds * 1000;
-                    crossfadeValueDisplay.textContent = `${seconds} s`;
-                    // Recalculate everything when slider changes
-                    updateAllTimingsAndChapters();
+                    // --- START CHANGE: Remove immediate update --- 
+                    // crossfadeMs = seconds * 1000; // DO NOT update variable here
+                    if(crossfadeValueDisplay) crossfadeValueDisplay.textContent = `${seconds} s`; // ONLY update display
+                    // // Recalculate everything when slider changes // DO NOT update timings here
+                    //  if (tracksData.length > 0) { 
+                    //     updateAllTimingsAndChapters();
+                    //  }
+                    // --- END CHANGE ---
                 });
             }
 
@@ -1174,7 +1520,6 @@
              if (error) {
                  displayError(`Authorization failed: ${error}. Please try logging in again.`);
                  authSection.style.display = 'block';
-                 controlsSection.style.display = 'none';
                  reloadButton.style.display = 'none'; // Hide reload button
                  if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
                  if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
@@ -1201,7 +1546,6 @@
                  } else {
                      // Token exchange failed, show login again
                      authSection.style.display = 'block';
-                     controlsSection.style.display = 'none';
                      reloadButton.style.display = 'none'; // Hide reload button
                      if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
                      if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
@@ -1212,12 +1556,26 @@
                  console.log("No authorization code or stored token found, redirecting to Spotify login...");
                  requestAuthorization();
              }
+
+            // --- START ADDITION: Config Panel Listeners ---
+            if (configButton) {
+                configButton.addEventListener('click', openConfigPanel);
+            }
+            if (saveConfigButton) {
+                saveConfigButton.addEventListener('click', saveConfiguration);
+            }
+            if (closeConfigButton) {
+                 closeConfigButton.addEventListener('click', closeConfigPanel);
+            }
+            if (configOverlay) {
+                configOverlay.addEventListener('click', closeConfigPanel); // Close on overlay click
+            }
+             // --- END ADDITION ---
         }
 
         async function loadAppContent() {
             console.log("Loading app content...");
             authSection.style.display = 'none';
-            controlsSection.style.display = 'block';
             reloadButton.style.display = 'block'; // Show reload button
             if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'flex'; // Show markers
             if(manualSaveButton) manualSaveButton.style.display = 'block'; // Show manual save
@@ -1259,7 +1617,6 @@
                 displayError(`Failed to load playlist: ${error.message}`);
                 // Decide how to handle failure - maybe show login?
                  authSection.style.display = 'block';
-                 controlsSection.style.display = 'none';
                  reloadButton.style.display = 'none'; // Hide reload button on error
                  if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers on error
                  if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save on error
