@@ -1432,7 +1432,7 @@
                  // Check for specific error types if needed (e.g., 404 NO_ACTIVE_DEVICE)
                  if (error.message && error.message.includes('NO_ACTIVE_DEVICE')) {
                       // Improved notification message
-                      showNotification("No active Spotify device found. Try playing/pausing in your Spotify app first.", true);
+                      showNotification("Play song with Spotify client first for in-app playback", true);
                  } else if (error.message && error.message.includes('PREMIUM_REQUIRED')) {
                       showNotification("Spotify Premium required to control playback remotely.", true);
                  } else {
