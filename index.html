@@ -136,6 +136,22 @@
             margin-right: 10px;
         }
 
+        .play-on-spotify-button {
+             cursor: pointer;
+             font-size: 1.1em;
+             margin-right: 10px;
+             padding: 0 5px;
+             color: #1DB954; /* Spotify Green */
+             border: 1px solid transparent;
+             border-radius: 3px;
+             user-select: none;
+             transition: background-color 0.2s, color 0.2s;
+        }
+         .play-on-spotify-button:hover {
+              color: #1ed760;
+              background-color: #f0f0f0;
+         }
+
         .song-details {
             flex-grow: 1;
             margin-right: 15px;
@@ -179,28 +195,7 @@
         /* Play Button Styling */
         /* Removed simulation styles */
 
-        /* Preview Button Styling */
-        .preview-button {
-            font-size: 1.2em;
-            cursor: pointer;
-            margin-right: 15px;
-            color: #1DB954; /* Spotify Green */
-            transition: color 0.2s ease;
-            display: inline-block; /* Ensure it takes space */
-            width: 20px; /* Fixed width for alignment */
-            text-align: center;
-        }
-        .preview-button:hover {
-            color: #1ed760;
-        }
-        .preview-button.playing {
-             color: #ff6347; /* Tomato color when playing */
-        }
-        .preview-button.disabled {
-            color: #ccc;
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
+        /* Removed Preview Button Styling */
 
         /* Crossfade Slider Styling */
         #crossfade-control {
@@ -412,6 +407,8 @@
         <!-- Chapters and songs will be loaded here -->
     </div>
 
+    <!-- Removed Shared Audio Element for Previews -->
+
     <!-- Chapter Markers -->
     <div id="chapter-markers"></div>
 
@@ -424,7 +421,7 @@
         const CLIENT_ID = 'ebad4e59324d46508365b346bb259963';
         const PLAYLIST_ID = '2S0g60Pj6okGDTvSUBgBs5'; // The specific playlist
         const REDIRECT_URI = window.location.origin + window.location.pathname; // Use current page URL
-        const SCOPES = 'playlist-read-private playlist-modify-public playlist-modify-private';
+        const SCOPES = 'playlist-read-private playlist-modify-public playlist-modify-private user-modify-playback-state';
 
         const WEDDING_START_TIME_STR = '14:15'; // H:MM format
         const chapters = [
@@ -457,6 +454,8 @@
         const chapterMarkersContainer = document.getElementById('chapter-markers');
         const notificationArea = document.getElementById('notification-area');
         const manualSaveButton = document.getElementById('manual-save-button');
+        // const audioPreviewElement = document.getElementById('audio-preview'); // Remove reference
+        // let currentlyPlayingPreviewButton = null; // Remove tracker
 
         // --- Utility Functions ---
         // Debounce function
@@ -808,6 +807,12 @@
 
                 songItem.innerHTML = `
                     <span class="song-number">${index + 1}.</span>
+                    <span 
+                        class="play-on-spotify-button" 
+                        title="Play on Spotify device"
+                     >
+                        ▶️
+                    </span>
                     <div class="song-details">
                         <div class="song-title">${track.name || 'Untitled'}</div>
                         <div class="song-artist">${track.artists?.map(a => a.name).join(', ') || 'Unknown Artist'}</div>
@@ -1114,6 +1119,13 @@
                      return; // Handled
                 }
 
+                // Handle Play on Spotify Click
+                 const playOnSpotifyButton = event.target.closest('.play-on-spotify-button');
+                 if (playOnSpotifyButton && playlistContainer.contains(playOnSpotifyButton)) {
+                     handlePlayOnSpotifyClick(playOnSpotifyButton);
+                      return; // Handled
+                  }
+
                 // If click was outside an open move menu and its trigger, close menus
                 // Check if the click target is NOT within any .move-menu or .move-trigger-button
                 if (!event.target.closest('.move-menu') && !event.target.closest('.move-trigger-button')) {
@@ -1384,6 +1396,47 @@
                  const targetElement = document.querySelector(targetId);
                  if (targetElement) {
                      targetElement.scrollIntoView({ behavior: 'smooth' });
+                 }
+             }
+        }
+
+        // --- Playback Control Handling ---
+        async function handlePlayOnSpotifyClick(button) {
+             const songItem = button.closest('.song-item');
+             if (!songItem) return;
+
+             const trackUri = songItem.dataset.uri;
+             const playlistUri = `spotify:playlist:${PLAYLIST_ID}`;
+
+             if (!trackUri) {
+                 console.error("Could not find track URI for playback.");
+                 showNotification("Error: Could not find track data.", true);
+                 return;
+             }
+
+             console.log(`Requesting playback of track ${trackUri} in context ${playlistUri}`);
+             // showNotification("Attempting to play on Spotify device..."); // Removed
+
+             try {
+                 // We send the playlist context and the specific track offset
+                 // Spotify will try to play on the user's active device
+                 await fetchWebApi('/me/player/play', 'PUT', {
+                     context_uri: playlistUri,
+                     offset: { uri: trackUri }
+                 });
+                 // Note: Success here just means the request was accepted, not guaranteed playback
+                 // We could add a slight delay and then fetch player state for confirmation, but adds complexity
+                 // showNotification("Playback started on Spotify device."); // Removed
+             } catch (error) {
+                 console.error("Error starting playback:", error);
+                 // Check for specific error types if needed (e.g., 404 NO_ACTIVE_DEVICE)
+                 if (error.message && error.message.includes('NO_ACTIVE_DEVICE')) {
+                      // Improved notification message
+                      showNotification("No active Spotify device found. Try playing/pausing in your Spotify app first.", true);
+                 } else if (error.message && error.message.includes('PREMIUM_REQUIRED')) {
+                      showNotification("Spotify Premium required to control playback remotely.", true);
+                 } else {
+                     showNotification(`Error starting playback: ${error.message || 'Unknown API error'}`, true);
                  }
              }
         }
