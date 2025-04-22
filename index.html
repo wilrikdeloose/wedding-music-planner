@@ -38,14 +38,14 @@
             background-color: #5a2a88;
         }
 
-        #error-message {
+        /* #error-message {
             color: #d9534f;
             text-align: center;
             margin-bottom: 15px;
             font-weight: bold;
             background-color: #7e4fb3;
             margin: 5px 0;
-        }
+        } */
 
         #playlist-container {
             max-width: 800px;
@@ -487,7 +487,7 @@
 
         function displayError(message) {
             console.error(message);
-            errorMessageDiv.textContent = `Error: ${message}`;
+            // errorMessageDiv.textContent = `Error: ${message}`; // Remove this line
         }
 
         function clearError() {
