@@ -1211,13 +1211,8 @@
                 loginButton.addEventListener('click', requestAuthorization);
             } else {
                 // No code, no stored token - show login button
-                console.log("No authorization code or stored token found, showing login button.");
-                authSection.style.display = 'block';
-                controlsSection.style.display = 'none';
-                reloadButton.style.display = 'none'; // Hide reload button
-                if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
-                if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
-                loginButton.addEventListener('click', requestAuthorization);
+                console.log("No authorization code or stored token found, redirecting to Spotify login...");
+                requestAuthorization();
             }
         }
 
