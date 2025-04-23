@@ -510,6 +510,18 @@
              padding: 12px 20px;
         }
 
+        /* --- START ADDITION: Playing Song Highlight --- */
+        .song-item.playing {
+            background-color: #e8dff5; /* Light purple */
+            /* border-color: #7e4fb3; */ /* Optional: darker border */
+            font-weight: bold; /* Make text bold */
+        }
+        .song-item.playing .song-title,
+        .song-item.playing .song-artist {
+            color: #5a2a88; /* Darker purple text */
+        }
+        /* --- END ADDITION --- */
+
     </style>
 </head>
 <body>
@@ -596,7 +608,7 @@
         let weddingStartMs = 0; // Wedding start time in milliseconds since epoch (for display)
         let weddingBaseOffsetMinutes = 0; // Offset from midnight in minutes
         let crossfadeMs = 5000; // Default crossfade 5 seconds
-        // Removed Simulation State
+        let currentlyPlayingSongItem = null; // --- ADDITION: Track playing item --- 
 
         // --- DOM Elements ---
         const loginButton = document.getElementById('login-button');
@@ -735,7 +747,11 @@
             notificationTimeoutId = setTimeout(() => {
                  notification.classList.add('hidden');
                  // Remove from DOM after transition
-                 notification.addEventListener('transitionend', () => notification.remove(), { once: true });
+                 notification.addEventListener('transitionend', () => {
+                    if (notification.parentNode) {
+                       notification.remove();
+                    }
+                }, { once: true });
             }, 3000);
         }
 
@@ -793,21 +809,29 @@
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    // --- START ADDITION: Handle 401 Unauthorized ---
+                    let errorData = {};
+                    // Try to parse JSON only if there might be content
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        try {
+                           errorData = await response.json();
+                        } catch (jsonError) {
+                            console.warn("Could not parse error response as JSON:", jsonError);
+                        }
+                    } 
+                    
+                    // Handle 401 Unauthorized specifically for re-authentication
                     if (response.status === 401) {
                         console.error("Access token expired or invalid. Clearing tokens and redirecting to login.");
                         accessToken = null;
                         refreshToken = null;
                         localStorage.removeItem('spotify_access_token');
                         localStorage.removeItem('spotify_refresh_token');
-                        // Optionally display a message before redirecting
-                        // showNotification("Your session expired. Redirecting to Spotify login...", true);
                         requestAuthorization(); // Redirect to login
-                        // Throw an error to stop further processing in the calling function
                         throw new Error(`Spotify API Error: 401 Unauthorized. Redirecting...`); 
                     }
-                    // --- END ADDITION ---
+
+                    // Throw a generic error for other non-ok statuses
                     throw new Error(`Token exchange failed: ${response.status} ${response.statusText}. ${errorData.error_description || errorData.error || ''}`);
                 }
 
@@ -844,31 +868,60 @@
                 });
 
                 if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({})); // Try to get error details
-                    // --- START ADDITION: Handle 401 Unauthorized ---
+                    let errorData = {};
+                    // Try to parse JSON only if there might be content
+                    const contentType = res.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        try {
+                           errorData = await res.json();
+                        } catch (jsonError) {
+                            console.warn("Could not parse error response as JSON:", jsonError);
+                        }
+                    } 
+                    
+                    // Handle 401 Unauthorized specifically for re-authentication
                     if (res.status === 401) {
                         console.error("Access token expired or invalid. Clearing tokens and redirecting to login.");
                         accessToken = null;
                         refreshToken = null;
                         localStorage.removeItem('spotify_access_token');
                         localStorage.removeItem('spotify_refresh_token');
-                        // Optionally display a message before redirecting
-                        // showNotification("Your session expired. Redirecting to Spotify login...", true);
                         requestAuthorization(); // Redirect to login
-                        // Throw an error to stop further processing in the calling function
                         throw new Error(`Spotify API Error: 401 Unauthorized. Redirecting...`); 
                     }
-                    // --- END ADDITION ---
+
+                    // Throw a generic error for other non-ok statuses
                     throw new Error(`Spotify API Error: ${res.status} ${res.statusText}. ${errorData.error?.message || ''}`);
                 }
-                 // Handle cases where response might be empty (e.g., PUT requests with 204)
-                if (res.status === 204 || res.headers.get("content-length") === "0") {
-                    return null; // Or return a specific success indicator if needed
-                }
 
-                return await res.json();
+                // Handle successful responses (res.ok is true)
+                if (res.status === 204) { 
+                    return null; // Success, but no content to parse
+                }
+                
+                // --- START CHANGE: Check Content-Type before parsing success response ---
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    // If response is ok and has JSON content, parse JSON
+                    try {
+                       return await res.json();
+                    } catch(jsonError) {
+                         console.error("Error parsing successful JSON response:", jsonError);
+                         throw new Error(`Failed to parse Spotify API JSON response: ${jsonError.message}`);
+                    }
+                } else {
+                    // If response is ok but not JSON (or no content-type), treat as success with no data
+                    console.log(`API call successful (${res.status}) but response is not JSON, returning null.`);
+                    return null; 
+                }
+                // --- END CHANGE ---
+
             } catch (error) {
-                displayError(`API call failed: ${error.message}`);
+                // Catch errors from fetch() itself or errors thrown above
+                // Avoid displaying the redirecting error if it's 401
+                if (!(error.message && error.message.includes("401 Unauthorized"))) {
+                    displayError(`API call failed: ${error.message}`); 
+                }
                 throw error; // Re-throw to stop further processing
             }
         }
@@ -961,6 +1014,7 @@
 
         // --- UI Rendering & Updates ---
         function renderPlaylist() {
+            currentlyPlayingSongItem = null; // --- ADDITION: Reset playing item on render ---
             playlistContainer.innerHTML = ''; // Clear existing content
             clearError();
 
@@ -1764,8 +1818,50 @@
                  return;
              }
 
+             // --- START CHANGE: Play/Pause Logic & UI Update ---
+             // Check if clicking the currently playing song (i.e., pause)
+             if (songItem === currentlyPlayingSongItem) {
+                 console.log("Requesting pause...");
+
+                 // --- START CHANGE: Proactive Pause UI Update ---
+                 // 1. Update UI and State Proactively
+                 button.textContent = '▶️'; 
+                 songItem.classList.remove('playing'); 
+                 currentlyPlayingSongItem = null; 
+                 
+                 // 2. Attempt API Call
+                 try {
+                     await fetchWebApi('/me/player/pause', 'PUT');
+                     // No UI changes needed here, already done.
+                 } catch (pauseError) {
+                     console.error("Error during pause API request:", pauseError);
+                     // Optional: Handle specific errors differently, but generally
+                     // we keep the UI in the paused state even if API reports error, 
+                     // matching observed behavior.
+                     // Avoid showing generic error notifications for the known 403 quirk.
+                      if (!(pauseError.message && pauseError.message.includes("403"))) {
+                          showNotification(`Error pausing playback: ${pauseError.message || 'Unknown API error'}`, true);
+                      }
+                 }
+                 return; // Stop here
+             }
+
+             // --- Play Logic (largely unchanged) ---
+             // If we are here, it's a request to play a *new* song
              console.log(`Requesting playback of track ${trackUri} in context ${playlistUri}`);
-             // showNotification("Attempting to play on Spotify device..."); // Removed
+
+             // Reset previous playing item (if any)
+             if (currentlyPlayingSongItem) {
+                 const previousButton = currentlyPlayingSongItem.querySelector('.play-on-spotify-button');
+                 if (previousButton) previousButton.textContent = '▶️';
+                 currentlyPlayingSongItem.classList.remove('playing');
+             }
+
+             // Set new playing item
+             songItem.classList.add('playing');
+             button.textContent = '⏸️'; // Change icon to pause
+             currentlyPlayingSongItem = songItem;
+             // --- END CHANGE ---
 
              try {
                  // We send the playlist context and the specific track offset
@@ -1775,13 +1871,18 @@
                      offset: { uri: trackUri }
                  });
                  // Note: Success here just means the request was accepted, not guaranteed playback
-                 // We could add a slight delay and then fetch player state for confirmation, but adds complexity
-                 // showNotification("Playback started on Spotify device."); // Removed
              } catch (error) {
                  console.error("Error starting playback:", error);
+                 
+                 // Check if the item that failed is still the one marked as playing
+                 if (currentlyPlayingSongItem === songItem) {
+                     songItem.classList.remove('playing');
+                     button.textContent = '▶️'; 
+                     currentlyPlayingSongItem = null;
+                 }
+
                  // Check for specific error types if needed (e.g., 404 NO_ACTIVE_DEVICE)
                  if (error.message && error.message.includes('NO_ACTIVE_DEVICE')) {
-                      // Improved notification message
                       showNotification("Play song with Spotify client first for in-app playback", true);
                  } else if (error.message && error.message.includes('PREMIUM_REQUIRED')) {
                       showNotification("Spotify Premium required to control playback remotely.", true);
