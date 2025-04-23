@@ -280,18 +280,18 @@
         }
 
         /* Reload/Manual Save Button Styling */
-        .floating-action-button {
+        /* --- REMOVE OLD STYLES START --- */
+        /* .floating-action-button {
             position: fixed;
             right: 20px;
-            z-index: 100; /* Ensure it's above markers */
+            z-index: 100; 
             padding: 10px;
-            font-size: 1.3em; /* Standardize icon size */
-            line-height: 1; /* Align icon better */
-            border-radius: 50%; /* Make it round */
+            font-size: 1.3em; 
+            line-height: 1; 
+            border-radius: 50%; 
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            display: none; /* Initially hidden */
+            display: none; 
             cursor: pointer;
-             /* Inherit button styles defined earlier */
             background-color: #7e4fb3;
             color: white;
             border: none;
@@ -307,12 +307,57 @@
         }
         #reload-button {
             bottom: 20px;
-            padding: 12px 15px; /* Keep reload slightly bigger */
+            padding: 12px 15px; 
             font-size: 1.5em;
         }
         #manual-save-button {
-            bottom: 85px; /* Position above reload (adjust as needed based on size) */
+            bottom: 85px; 
+        } */
+        /* --- REMOVE OLD STYLES END --- */
+
+        /* --- ADD NEW STYLES START --- */
+        /* Action Buttons Styling (mimics chapter markers) */
+        #action-buttons-container {
+            position: fixed;
+            bottom: 20px; /* Adjust position as needed */
+            right: 15px;
+            /* display: flex; */ /* Keep display: none controlled by JS */
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100; 
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
         }
+
+        #action-buttons-container button {
+            background-color: #f0f0f0;
+            border: none;
+            color: #5a2a88;
+            text-align: left; 
+            display: block;
+            padding: 8px 12px; 
+            font-size: 0.9em; 
+            text-decoration: none;
+            border-radius: 3px;
+            transition: background-color 0.2s, color 0.2s;
+            white-space: nowrap;
+            cursor: pointer;
+            margin: 0; 
+        }
+
+        #action-buttons-container button:hover {
+            background-color: #e8dff5;
+        }
+
+        #action-buttons-container button:disabled {
+             background-color: #ccc; 
+             color: #888; 
+             cursor: wait;
+             opacity: 0.7;
+        }
+        /* --- ADD NEW STYLES END --- */
 
         /* Notification Styling */
         #notification-area {
@@ -579,8 +624,14 @@
     <div id="chapter-markers"></div>
 
     <!-- Floating Buttons -->
-    <button id="manual-save-button" class="floating-action-button" title="Save playlist now">💾</button>
-    <button id="reload-button" class="floating-action-button" title="Reload playlist from Spotify">🔄</button>
+    <!-- START CHANGE: Action Buttons Container -->
+    <div id="action-buttons-container" style="display: none;"> <!-- Initially hidden -->
+        <button id="manual-save-button" title="Save playlist now">Save Order</button>
+        <button id="reload-button" title="Reload playlist from Spotify">Reload Playlist</button>
+    </div>
+    <!-- END CHANGE -->
+    <!-- <button id="manual-save-button" class="floating-action-button" title="Save playlist now">💾</button> -->
+    <!-- <button id="reload-button" class="floating-action-button" title="Reload playlist from Spotify">🔄</button> -->
 
     <script>
         // --- Configuration ---
@@ -633,6 +684,7 @@
         const saveConfigButton = document.getElementById('save-config-button');
         const closeConfigButton = document.getElementById('close-config-button');
         // --- END ADDITION ---
+        const actionButtonsContainer = document.getElementById('action-buttons-container'); // --- ADDITION: Action buttons container ---
 
         // --- Utility Functions ---
         // Debounce function
@@ -1574,9 +1626,12 @@
              if (error) {
                  displayError(`Authorization failed: ${error}. Please try logging in again.`);
                  authSection.style.display = 'block';
-                 reloadButton.style.display = 'none'; // Hide reload button
+                 // --- START CHANGE: Hide container ---
+                 // reloadButton.style.display = 'none'; 
+                 // manualSaveButton.style.display = 'none'; 
+                 if(actionButtonsContainer) actionButtonsContainer.style.display = 'none';
+                 // --- END CHANGE ---
                  if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
-                 if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
                  loginButton.addEventListener('click', requestAuthorization);
                  return;
              }
@@ -1600,9 +1655,12 @@
                  } else {
                      // Token exchange failed, show login again
                      authSection.style.display = 'block';
-                     reloadButton.style.display = 'none'; // Hide reload button
+                     // --- START CHANGE: Hide container ---
+                     // reloadButton.style.display = 'none'; 
+                     // manualSaveButton.style.display = 'none'; 
+                     if(actionButtonsContainer) actionButtonsContainer.style.display = 'none';
+                     // --- END CHANGE ---
                      if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers
-                     if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save
                      loginButton.addEventListener('click', requestAuthorization);
                  }
              } else {
@@ -1630,9 +1688,12 @@
         async function loadAppContent() {
             console.log("Loading app content...");
             authSection.style.display = 'none';
-            reloadButton.style.display = 'block'; // Show reload button
+            // --- START CHANGE: Show container ---
+            // reloadButton.style.display = 'block'; 
+            // manualSaveButton.style.display = 'block'; 
+            if(actionButtonsContainer) actionButtonsContainer.style.display = 'flex'; // Use flex for column display
+            // --- END CHANGE ---
             if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'flex'; // Show markers
-            if(manualSaveButton) manualSaveButton.style.display = 'block'; // Show manual save
 
             // Add listener only once, or check if exists before adding
             if (!reloadButton.dataset.listenerAttached) { 
@@ -1671,9 +1732,12 @@
                 displayError(`Failed to load playlist: ${error.message}`);
                 // Decide how to handle failure - maybe show login?
                  authSection.style.display = 'block';
-                 reloadButton.style.display = 'none'; // Hide reload button on error
+                 // --- START CHANGE: Hide container on error ---
+                 // reloadButton.style.display = 'none'; 
+                 // manualSaveButton.style.display = 'none'; 
+                 if(actionButtonsContainer) actionButtonsContainer.style.display = 'none'; 
+                 // --- END CHANGE ---
                  if(chapterMarkersContainer) chapterMarkersContainer.style.display = 'none'; // Hide markers on error
-                 if(manualSaveButton) manualSaveButton.style.display = 'none'; // Hide manual save on error
                  accessToken = null; // Clear potentially invalid token
                  refreshToken = null;
                  loginButton.addEventListener('click', requestAuthorization);
