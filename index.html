@@ -549,11 +549,21 @@
         /* --- END ADDITION --- */
 
         #config-panel button#save-config-button { 
-             /* margin-top: auto; */ /* Keep removed */
-             flex-shrink: 0; /* Keep this line */
+             /* flex-shrink: 0; */ /* REMOVE this - not needed on button in footer */
              /* Keep existing padding etc. */
              padding: 12px 20px;
+             width: 100%; /* Make button full width of footer */
+             margin: 0; /* Reset margin */
         }
+
+        /* --- START ADDITION: Config Footer Style --- */
+        #config-footer {
+            padding-top: 15px; /* Space above the button */
+            margin-top: auto; /* Push footer to bottom */
+            border-top: 1px solid #ccc; /* Separator line */
+            margin-bottom: 30px; /* --- ADDITION: Add bottom margin --- */
+        }
+        /* --- END ADDITION --- */
 
         /* --- START ADDITION: Playing Song Highlight --- */
         .song-item.playing {
@@ -608,7 +618,12 @@
         </div>
         <!-- END ADDITION -->
 
-        <button id="save-config-button">Save Settings</button>
+        <!-- START ADDITION: Config Footer -->
+        <div id="config-footer">
+             <button id="save-config-button">Save Settings</button>
+        </div>
+        <!-- END ADDITION -->
+        <!-- <button id="save-config-button">Save Settings</button> --> <!-- Comment out the original button -->
         <button id="close-config-button" title="Close Settings">✕</button> 
     </div>
     <div id="config-overlay"></div> <!-- Optional overlay -->
